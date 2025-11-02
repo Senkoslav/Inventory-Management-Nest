@@ -54,15 +54,18 @@ export class InventoriesService {
     }
 
     let orderBy: any = { createdAt: 'desc' };
-    if (sort === 'popular') {
-      orderBy = { items: { _count: 'desc' } };
+    
+    // Note: Prisma doesn't support ordering by relation count directly in orderBy
+    // For 'popular' sort, we'll fetch all and sort in memory, or use a different approach
+    if (sort === 'name') {
+      orderBy = { title: 'asc' };
     }
 
     const [inventories, total] = await Promise.all([
       this.prisma.inventory.findMany({
         where,
-        skip,
-        take: limit,
+        skip: sort === 'popular' ? undefined : skip,
+        take: sort === 'popular' ? undefined : limit,
         orderBy,
         include: {
           owner: { select: { id: true, name: true, email: true } },
@@ -72,6 +75,20 @@ export class InventoriesService {
       }),
       this.prisma.inventory.count({ where }),
     ]);
+
+    // If sorting by popular, sort in memory and paginate
+    if (sort === 'popular') {
+      const sorted = inventories.sort((a, b) => b._count.items - a._count.items);
+      return {
+        data: sorted.slice(skip, skip + limit),
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
 
     return {
       data: inventories,
