@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: inventory-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run prisma:generate && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_VERSION
+        value: 18.18.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inventory-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      # Add these in Render dashboard:
+      # - GOOGLE_CLIENT_ID
+      # - GOOGLE_CLIENT_SECRET
+      # - FACEBOOK_APP_ID
+      # - FACEBOOK_APP_SECRET
+      # - OAUTH_CALLBACK_URL
+      # - AWS_ACCESS_KEY_ID
+      # - AWS_SECRET_ACCESS_KEY
+      # - AWS_REGION
+      # - AWS_S3_BUCKET
+      # - AWS_S3_ENDPOINT
+      # - S3_USE_PATH_STYLE
+      # - FRONTEND_URL
+
+databases:
+  - name: inventory-db
+    databaseName: inventory_db
+    user: inventory_user
+    plan: free
