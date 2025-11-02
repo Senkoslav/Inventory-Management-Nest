@@ -7,9 +7,28 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  // CORS configuration
+  const frontendUrl = configService.get('FRONTEND_URL');
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    frontendUrl,
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: configService.get('FRONTEND_URL') || '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin) || frontendUrl === '*') {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(
