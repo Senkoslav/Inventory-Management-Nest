@@ -1,40 +1,141 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as AWS from 'aws-sdk';
-import { v4 as uuidv4 } from 'uuid';
+import { Cassiopeia } from 'cassiopeia-starlighter';
 
 @Injectable()
 export class UploadService {
-  private s3: AWS.S3;
-  private bucket: string;
+  private cassiopeia: Cassiopeia | null = null;
+  private isInitialized = false;
 
   constructor(private configService: ConfigService) {
-    this.s3 = new AWS.S3({
-      accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID') || '',
-      secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY') || '',
-      region: this.configService.get('AWS_REGION') || 'us-east-1',
-      endpoint: this.configService.get('AWS_S3_ENDPOINT'),
-      s3ForcePathStyle: this.configService.get('S3_USE_PATH_STYLE') === 'true',
-    });
-    this.bucket = this.configService.get('AWS_S3_BUCKET') || 'inventory-files';
+    this.initializeCassiopeia();
+  }
+
+  private async initializeCassiopeia() {
+    const email = this.configService.get('CASSIOPEIA_EMAIL');
+    const password = this.configService.get('CASSIOPEIA_PASSWORD');
+
+    if (email && password && email !== 'dummy') {
+      try {
+        this.cassiopeia = new Cassiopeia(email, password);
+        await this.cassiopeia.updateTokens();
+        this.isInitialized = true;
+        console.log('✅ Cassiopeia file storage initialized');
+      } catch (error) {
+        console.warn('⚠️ Cassiopeia initialization failed:', error.message);
+        this.cassiopeia = null;
+      }
+    } else {
+      console.log('ℹ️ Cassiopeia not configured');
+    }
+  }
+
+  async uploadFile(fileBuffer: Buffer, fileName: string, isPublic: boolean = true) {
+    if (!this.cassiopeia || !this.isInitialized) {
+      throw new BadRequestException(
+        'File storage not configured. Set CASSIOPEIA_EMAIL and CASSIOPEIA_PASSWORD.',
+      );
+    }
+
+    try {
+      const response: any = await this.cassiopeia.upload(fileBuffer, fileName, isPublic);
+      
+      if (response instanceof Error) {
+        throw response;
+      }
+
+      return {
+        uuid: response.uuid,
+        fileName: response.filename,
+        size: response.size,
+        isPublic: response.isPublic,
+        fileUrl: isPublic
+          ? `https://cassiopeia-db.com/public/${response.uuid}`
+          : `https://cassiopeia-db.com/files/${response.uuid}`,
+        createdAt: response.createdAt,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Upload failed: ${error.message}`);
+    }
+  }
+
+  async downloadFile(uuid: string, isPublic: boolean = true): Promise<Buffer> {
+    if (!this.cassiopeia || !this.isInitialized) {
+      throw new BadRequestException('File storage not configured.');
+    }
+
+    try {
+      let result: any;
+      if (isPublic) {
+        result = await this.cassiopeia.downloadPublic(uuid);
+      } else {
+        result = await this.cassiopeia.download(uuid);
+      }
+
+      if (result instanceof Error) {
+        throw result;
+      }
+
+      return result as Buffer;
+    } catch (error) {
+      throw new BadRequestException(`Download failed: ${error.message}`);
+    }
   }
 
   async getPresignedUploadUrl(fileName: string, contentType: string) {
-    const key = `${uuidv4()}-${fileName}`;
-    const params = {
-      Bucket: this.bucket,
-      Key: key,
-      ContentType: contentType,
-      Expires: 3600,
-    };
-
-    const uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
-    const fileUrl = `${this.configService.get('AWS_S3_ENDPOINT')}/${this.bucket}/${key}`;
+    if (!this.cassiopeia || !this.isInitialized) {
+      return {
+        uploadUrl: 'not-configured',
+        fileUrl: 'not-configured',
+        key: 'not-configured',
+        message: 'File storage not configured. Set CASSIOPEIA_EMAIL and CASSIOPEIA_PASSWORD.',
+      };
+    }
 
     return {
-      uploadUrl,
-      fileUrl,
-      key,
+      uploadUrl: 'use-direct-upload',
+      fileUrl: 'generated-after-upload',
+      key: fileName,
+      message: 'Use POST /upload/file endpoint for direct upload',
     };
+  }
+
+  isConfigured(): boolean {
+    return this.isInitialized && this.cassiopeia !== null;
+  }
+
+  async registerCassiopeia(email: string, password: string) {
+    try {
+      const cassiopeia = new Cassiopeia(email, password);
+      await cassiopeia.register();
+      return {
+        success: true,
+        message: 'Registration successful! Check your email for activation code.',
+        email,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Registration failed: ${error.message}`);
+    }
+  }
+
+  async activateCassiopeia(email: string, password: string, activationCode: string) {
+    try {
+      const cassiopeia = new Cassiopeia(email, password);
+      await cassiopeia.activate(activationCode);
+
+      // After activation, initialize the service
+      this.cassiopeia = cassiopeia;
+      await this.cassiopeia.updateTokens();
+      this.isInitialized = true;
+
+      return {
+        success: true,
+        message: 'Account activated successfully! Cassiopeia is now ready to use.',
+        email,
+        configured: true,
+      };
+    } catch (error) {
+      throw new BadRequestException(`Activation failed: ${error.message}`);
+    }
   }
 }
