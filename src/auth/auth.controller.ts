@@ -36,7 +36,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     
-    res.redirect(`${frontendUrl}/dashboard`);
+    res.redirect(`${frontendUrl}/inventories`);
   }
 
   @Public()
@@ -61,7 +61,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     
-    res.redirect(`${frontendUrl}/dashboard`);
+    res.redirect(`${frontendUrl}/inventories`);
   }
 
   @Get('me')

@@ -12,7 +12,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       callbackURL: (configService.get('OAUTH_CALLBACK_URL') || '') + '/google',
       scope: ['email', 'profile'],
       state: true,
-      pkce: true,
     });
   }
 
