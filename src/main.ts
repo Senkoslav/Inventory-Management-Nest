@@ -3,12 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'debug', 'log', 'verbose'],
   });
   const configService = app.get(ConfigService);
+
+  // Cookie parser middleware
+  app.use(cookieParser());
 
   // CORS configuration
   const frontendUrl = configService.get('FRONTEND_URL');

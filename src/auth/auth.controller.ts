@@ -26,7 +26,17 @@ export class AuthController {
     const user = await this.authService.validateOAuthUser(req.user);
     const token = await this.authService.login(user);
     const frontendUrl = this.configService.get('FRONTEND_URL');
-    res.redirect(`${frontendUrl}/auth/callback?token=${token.access_token}`);
+    
+    // Set JWT in HTTP-only secure cookie
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    res.cookie('jwt', token.access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+    
+    res.redirect(`${frontendUrl}/dashboard`);
   }
 
   @Public()
@@ -41,7 +51,17 @@ export class AuthController {
     const user = await this.authService.validateOAuthUser(req.user);
     const token = await this.authService.login(user);
     const frontendUrl = this.configService.get('FRONTEND_URL');
-    res.redirect(`${frontendUrl}/auth/callback?token=${token.access_token}`);
+    
+    // Set JWT in HTTP-only secure cookie
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    res.cookie('jwt', token.access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+    
+    res.redirect(`${frontendUrl}/dashboard`);
   }
 
   @Get('me')
@@ -56,7 +76,8 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout() {
-    return { message: 'Logged out successfully' };
+  async logout(@Res() res: Response) {
+    res.clearCookie('jwt');
+    return res.json({ message: 'Logged out successfully' });
   }
 }

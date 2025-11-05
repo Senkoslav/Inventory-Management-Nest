@@ -11,6 +11,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: configService.get('GOOGLE_CLIENT_SECRET') || '',
       callbackURL: (configService.get('OAUTH_CALLBACK_URL') || '') + '/google',
       scope: ['email', 'profile'],
+      state: true,
+      pkce: true,
     });
   }
 
