@@ -4,32 +4,12 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import * as cookieParser from 'cookie-parser';
-import * as session from 'express-session';
-import * as passport from 'passport';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'debug', 'log', 'verbose'],
   });
   const configService = app.get(ConfigService);
-
-  // Session middleware (required for OAuth state parameter)
-  app.use(
-    session({
-      secret: configService.get('JWT_SECRET') || 'session-secret',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: configService.get('NODE_ENV') === 'production',
-        httpOnly: true,
-        maxAge: 10 * 60 * 1000, // 10 minutes (only for OAuth flow)
-      },
-    }),
-  );
-
-  // Initialize Passport
-  app.use(passport.initialize());
-  app.use(passport.session());
 
   // Cookie parser middleware
   app.use(cookieParser());

@@ -10,11 +10,10 @@ import { FacebookStrategy } from './strategies/facebook.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
-import { SessionSerializer } from './session.serializer';
 
 @Module({
   imports: [
-    PassportModule.register({ session: true }),
+    PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -32,7 +31,6 @@ import { SessionSerializer } from './session.serializer';
     JwtStrategy,
     GoogleStrategy,
     FacebookStrategy,
-    SessionSerializer,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
